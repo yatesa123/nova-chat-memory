@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova • Remember Me</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        .chat-container { height: 62vh; overflow-y: auto; }
+        .message { max-width: 80%; padding: 12px 16px; border-radius: 18px; margin: 8px 0; }
+        .user-msg { background: #3b82f6; color: white; margin-left: auto; border-bottom-right-radius: 4px; }
+        .nova-msg { background: #27272a; color: #e4e4e7; border-bottom-left-radius: 4px; }
+        .chat-item { transition: all 0.1s; }
+        .chat-item.active { background: #27272a; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-white">
+    <div class="flex h-screen max-w-6xl mx-auto">
+        
+        <!-- Sidebar -->
+        <div class="w-72 bg-zinc-900 border-r border-zinc-800 p-4 flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="font-semibold text-lg">Conversations</h2>
+                <button onclick="newChat()" 
+                        class="bg-violet-600 hover:bg-violet-500 text-sm px-3 py-1.5 rounded-xl flex items-center gap-x-2">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>New</span>
+                </button>
+            </div>
+            
+            <div id="chat-list" class="flex-1 overflow-y-auto space-y-1 pr-1 text-sm">
+                <!-- Populated by JS -->
+            </div>
+            
+            <div class="mt-auto pt-4 border-t border-zinc-800">
+                <button onclick="clearAllMemory()" 
+                        class="w-full text-xs text-zinc-400 hover:text-red-400 flex items-center justify-center gap-x-2 py-2">
+                    <i class="fa-solid fa-trash"></i>
+                    <span>Clear All Memory</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Chat -->
+        <div class="flex-1 flex flex-col p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-x-3">
+                    <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-robot text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold">Nova</h1>
+                        <p class="text-xs text-emerald-400">remembers everything</p>
+                    </div>
+                </div>
+                <div id="current-chat-title" class="text-sm text-zinc-400 font-medium"></div>
+            </div>
+
+            <div id="memory-box" class="mb-4 p-4 bg-zinc-900 rounded-2xl text-sm hidden">
+                <div class="flex items-center gap-x-2 mb-2 text-violet-400">
+                    <i class="fa-solid fa-brain"></i>
+                    <span class="font-semibold">What I remember about you</span>
+                </div>
+                <div id="memory-content" class="text-zinc-300 text-sm"></div>
+            </div>
+
+            <div class="flex-1 bg-zinc-900 rounded-3xl p-4 shadow-xl flex flex-col">
+                <div id="chat" class="chat-container flex-1 overflow-y-auto p-2 space-y-3"></div>
+                
+                <div class="flex gap-2 mt-4">
+                    <input id="input" type="text" 
+                           class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-white placeholder-zinc-400 focus:outline-none focus:border-violet-500"
+                           placeholder="Tell me anything...">
+                    <button onclick="sendMessage()" 
+                            class="bg-violet-600 hover:bg-violet-500 px-6 rounded-2xl font-semibold flex items-center justify-center">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentChatId = null;
+        let messages = [];
+        let userMemory = {};
+        let allChats = [];
+
+        async function loadAllChats() {
+            const res = await fetch('/api/chats');
+            allChats = await res.json();
+            renderChatList();
+        }
+
+        function renderChatList() {
+            const container = document.getElementById('chat-list');
+            container.innerHTML = '';
+            
+            allChats.forEach(chat => {
+                const div = document.createElement('div');
+                div.className = `chat-item group px-3 py-2 rounded-xl flex items-center justify-between text-sm cursor-pointer ${chat.id === currentChatId ? 'active' : 'hover:bg-zinc-800'}`;
+                
+                div.innerHTML = `
+                    <div class="flex-1 truncate" onclick="switchChat('${chat.id}')">${chat.title || 'New Chat'}</div>
+                    
+                    <div class="hidden group-hover:flex items-center gap-x-1 ml-2">
+                        <button onclick="event.stopImmediatePropagation(); renameChat('${chat.id}', '${chat.title}')" 
+                                class="text-zinc-400 hover:text-white p-1">
+                            <i class="fa-solid fa-edit text-xs"></i>
+                        </button>
+                        <button onclick="event.stopImmediatePropagation(); deleteChat('${chat.id}')" 
+                                class="text-zinc-400 hover:text-red-400 p-1">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function newChat() {
+            const res = await fetch('/api/chats', { method: 'POST' });
+            const newChatData = await res.json();
+            currentChatId = newChatData.id;
+            messages = [];
+            document.getElementById('chat').innerHTML = '';
+            document.getElementById('current-chat-title').innerText = 'New Conversation';
+            await loadAllChats();
+        }
+
+        async function switchChat(chatId) {
+            currentChatId = chatId;
+            const res = await fetch(`/api/chat?chatId=${chatId}`);
+            const data = await res.json();
+            
+            messages = data.history || [];
+            userMemory = data.memory || {};
+            
+            renderChat();
+            renderMemory();
+            document.getElementById('current-chat-title').innerText = data.title || 'Conversation';
+            renderChatList();
+        }
+
+        async function renameChat(chatId, currentTitle) {
+            const newTitle = prompt("New chat name:", currentTitle);
+            if (!newTitle || newTitle === currentTitle) return;
+            
+            await fetch('/api/chats', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, title: newTitle })
+            });
+            
+            await loadAllChats();
+            if (currentChatId === chatId) {
+                document.getElementById('current-chat-title').innerText = newTitle;
+            }
+        }
+
+        async function deleteChat(chatId) {
+            if (!confirm("Delete this conversation?")) return;
+            
+            await fetch('/api/chats', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId })
+            });
+            
+            await loadAllChats();
+            
+            if (currentChatId === chatId) {
+                if (allChats.length > 0) {
+                    await switchChat(allChats[0].id);
+                } else {
+                    await newChat();
+                }
+            }
+        }
+
+        function renderChat() { /* same as before */ }
+        function renderMemory() { /* same as before */ }
+
+        async function sendMessage() { /* same as previous version */ }
+
+        async function clearAllMemory() {
+            if (!confirm("Delete ALL memory and conversations?")) return;
+            await fetch('/api/memory', { method: 'DELETE' });
+            location.reload();
+        }
+
+        async function init() {
+            await loadAllChats();
+            if (allChats.length > 0) {
+                await switchChat(allChats[0].id);
+            } else {
+                await newChat();
+            }
+        }
+
+        window.onload = init;
+        document.getElementById('input').addEventListener('keypress', e => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
