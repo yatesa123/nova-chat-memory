@@ -1,7 +1,7 @@
 import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
-  // NEW: Handle loading a specific chat
+  // === NEW: Load chat history + memory (this was missing!) ===
   if (req.method === 'GET') {
     const { chatId } = req.query;
     if (!chatId) return res.status(400).json({ error: 'chatId is required' });
@@ -17,6 +17,7 @@ export default async function handler(req, res) {
     });
   }
 
+  // === Original sending logic (cleaned up) ===
   if (req.method === 'POST') {
     const { message, chatId, history = [], memory = {} } = req.body;
 
@@ -88,7 +89,7 @@ Be natural and reference past conversations when it feels right.`;
       reply, 
       updatedMemory 
     });
-    return; // ← added this so it doesn't fall through
+    return;
   }
 
   res.status(405).end();
