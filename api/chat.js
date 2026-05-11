@@ -52,7 +52,7 @@ Be natural and reference past conversations when it feels right.`;
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'grok-2-latest',
+        model: 'grok-beta',
         messages: messagesForAPI,
         temperature: 0.85,
         max_tokens: 700
