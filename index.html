@@ -22,20 +22,16 @@
         <div class="w-72 bg-zinc-900 border-r border-zinc-800 p-4 flex flex-col">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="font-semibold text-lg">Conversations</h2>
-                <button onclick="newChat()" 
-                        class="bg-violet-600 hover:bg-violet-500 text-sm px-3 py-1.5 rounded-xl flex items-center gap-x-2">
+                <button onclick="newChat()" class="bg-violet-600 hover:bg-violet-500 text-sm px-3 py-1.5 rounded-xl flex items-center gap-x-2">
                     <i class="fa-solid fa-plus text-xs"></i>
                     <span>New</span>
                 </button>
             </div>
             
-            <div id="chat-list" class="flex-1 overflow-y-auto space-y-1 pr-1 text-sm">
-                <!-- Populated by JS -->
-            </div>
+            <div id="chat-list" class="flex-1 overflow-y-auto space-y-1 pr-1 text-sm"></div>
             
             <div class="mt-auto pt-4 border-t border-zinc-800">
-                <button onclick="clearAllMemory()" 
-                        class="w-full text-xs text-zinc-400 hover:text-red-400 flex items-center justify-center gap-x-2 py-2">
+                <button onclick="clearAllMemory()" class="w-full text-xs text-zinc-400 hover:text-red-400 flex items-center justify-center gap-x-2 py-2">
                     <i class="fa-solid fa-trash"></i>
                     <span>Clear All Memory</span>
                 </button>
@@ -69,11 +65,8 @@
                 <div id="chat" class="chat-container flex-1 overflow-y-auto p-2 space-y-3"></div>
                 
                 <div class="flex gap-2 mt-4">
-                    <input id="input" type="text" 
-                           class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-white placeholder-zinc-400 focus:outline-none focus:border-violet-500"
-                           placeholder="Tell me anything...">
-                    <button onclick="sendMessage()" 
-                            class="bg-violet-600 hover:bg-violet-500 px-6 rounded-2xl font-semibold flex items-center justify-center">
+                    <input id="input" type="text" class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-white placeholder-zinc-400 focus:outline-none focus:border-violet-500" placeholder="Tell me anything...">
+                    <button onclick="sendMessage()" class="bg-violet-600 hover:bg-violet-500 px-6 rounded-2xl font-semibold flex items-center justify-center">
                         <i class="fa-solid fa-paper-plane"></i>
                     </button>
                 </div>
@@ -96,23 +89,14 @@
         function renderChatList() {
             const container = document.getElementById('chat-list');
             container.innerHTML = '';
-            
             allChats.forEach(chat => {
                 const div = document.createElement('div');
                 div.className = `chat-item group px-3 py-2 rounded-xl flex items-center justify-between text-sm cursor-pointer ${chat.id === currentChatId ? 'active' : 'hover:bg-zinc-800'}`;
-                
                 div.innerHTML = `
                     <div class="flex-1 truncate" onclick="switchChat('${chat.id}')">${chat.title || 'New Chat'}</div>
-                    
                     <div class="hidden group-hover:flex items-center gap-x-1 ml-2">
-                        <button onclick="event.stopImmediatePropagation(); renameChat('${chat.id}', '${chat.title}')" 
-                                class="text-zinc-400 hover:text-white p-1">
-                            <i class="fa-solid fa-edit text-xs"></i>
-                        </button>
-                        <button onclick="event.stopImmediatePropagation(); deleteChat('${chat.id}')" 
-                                class="text-zinc-400 hover:text-red-400 p-1">
-                            <i class="fa-solid fa-trash text-xs"></i>
-                        </button>
+                        <button onclick="event.stopImmediatePropagation(); renameChat('${chat.id}', '${chat.title}')" class="text-zinc-400 hover:text-white p-1"><i class="fa-solid fa-edit text-xs"></i></button>
+                        <button onclick="event.stopImmediatePropagation(); deleteChat('${chat.id}')" class="text-zinc-400 hover:text-red-400 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
                     </div>
                 `;
                 container.appendChild(div);
@@ -133,10 +117,8 @@
             currentChatId = chatId;
             const res = await fetch(`/api/chat?chatId=${chatId}`);
             const data = await res.json();
-            
             messages = data.history || [];
             userMemory = data.memory || {};
-            
             renderChat();
             renderMemory();
             document.getElementById('current-chat-title').innerText = data.title || 'Conversation';
@@ -146,43 +128,91 @@
         async function renameChat(chatId, currentTitle) {
             const newTitle = prompt("New chat name:", currentTitle);
             if (!newTitle || newTitle === currentTitle) return;
-            
             await fetch('/api/chats', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId, title: newTitle })
             });
-            
             await loadAllChats();
-            if (currentChatId === chatId) {
-                document.getElementById('current-chat-title').innerText = newTitle;
-            }
+            if (currentChatId === chatId) document.getElementById('current-chat-title').innerText = newTitle;
         }
 
         async function deleteChat(chatId) {
             if (!confirm("Delete this conversation?")) return;
-            
             await fetch('/api/chats', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId })
             });
-            
             await loadAllChats();
-            
             if (currentChatId === chatId) {
-                if (allChats.length > 0) {
-                    await switchChat(allChats[0].id);
-                } else {
-                    await newChat();
-                }
+                if (allChats.length > 0) await switchChat(allChats[0].id);
+                else await newChat();
             }
         }
 
-        function renderChat() { /* same as before */ }
-        function renderMemory() { /* same as before */ }
+        function renderChat() {
+            const chatDiv = document.getElementById('chat');
+            chatDiv.innerHTML = '';
+            messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = `message ${msg.role === 'user' ? 'user-msg' : 'nova-msg'}`;
+                div.innerHTML = msg.content.replace(/\n/g, '<br>');
+                chatDiv.appendChild(div);
+            });
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
 
-        async function sendMessage() { /* same as previous version */ }
+        function renderMemory() {
+            const box = document.getElementById('memory-box');
+            const content = document.getElementById('memory-content');
+            if (Object.keys(userMemory).length > 0) {
+                box.classList.remove('hidden');
+                let html = '';
+                for (let [key, value] of Object.entries(userMemory)) {
+                    html += `<div class="mb-0.5"><strong>${key}:</strong> ${value}</div>`;
+                }
+                content.innerHTML = html;
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('input');
+            const text = input.value.trim();
+            if (!text || !currentChatId) return;
+
+            messages.push({ role: 'user', content: text });
+            renderChat();
+            input.value = '';
+
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message nova-msg flex items-center gap-2';
+            loadingDiv.innerHTML = `<span class="animate-pulse">Nova is thinking...</span>`;
+            document.getElementById('chat').appendChild(loadingDiv);
+
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text, chatId: currentChatId, history: messages.slice(0, -1), memory: userMemory })
+                });
+                const data = await res.json();
+                loadingDiv.remove();
+                messages.push({ role: 'assistant', content: data.reply });
+                renderChat();
+                if (data.updatedMemory) {
+                    userMemory = data.updatedMemory;
+                    renderMemory();
+                }
+                await loadAllChats();
+            } catch (err) {
+                loadingDiv.remove();
+                alert("Error sending message. Check console.");
+                console.error(err);
+            }
+        }
 
         async function clearAllMemory() {
             if (!confirm("Delete ALL memory and conversations?")) return;
