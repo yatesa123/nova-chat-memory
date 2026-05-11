@@ -4,15 +4,13 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     const { chatId } = req.query;
     if (!chatId) return res.status(400).json({ error: 'chatId is required' });
-
     const history = await kv.get(`chat_${chatId}`) || [];
     const chatMeta = await kv.get(`chat_meta_${chatId}`) || { title: 'New Conversation' };
     const memory = await kv.get('user_memory') || {};
-
-    return res.json({ 
-      history, 
+    return res.json({
+      history,
       title: chatMeta.title,
-      memory 
+      memory
     });
   }
 
@@ -41,9 +39,7 @@ Be natural and reference past conversations when it feels right.`;
     { role: 'user', content: message }
   ];
 
-  // Declared outside the try block so the rest of the code can use it!
   let reply = "";
-
   try {
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
@@ -52,7 +48,7 @@ Be natural and reference past conversations when it feels right.`;
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'grok-beta', // ⬅️ THE FIX IS HERE!
+        model: 'grok-4.3',   // ← THIS IS THE CURRENT ONE (May 2026)
         messages: messagesForAPI,
         temperature: 0.85,
         max_tokens: 700
@@ -60,9 +56,7 @@ Be natural and reference past conversations when it feels right.`;
     });
 
     const data = await response.json();
-    
-    // ⬅️ THE WIRETAP IS HERE!
-    console.log("🤖 GROK RAW RESPONSE:", JSON.stringify(data)); 
+    console.log("🤖 GROK RAW RESPONSE:", JSON.stringify(data)); // helpful for debugging
 
     if (!response.ok) {
       console.error("❌ xAI API ERROR:", data);
@@ -85,7 +79,6 @@ Be natural and reference past conversations when it feels right.`;
 
   const updatedMemory = { ...storedMemory };
   const lowerMsg = message.toLowerCase();
-
   if (lowerMsg.includes("my name is")) {
     const name = message.split(/my name is/i)[1]?.trim().split(" ")[0];
     if (name) updatedMemory.name = name;
