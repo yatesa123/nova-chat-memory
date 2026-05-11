@@ -1,6 +1,6 @@
-import { kv } from '@vercel/kv';
+const { kv } = require('@vercel/kv');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     const { chatId } = req.query;
     if (!chatId) return res.status(400).json({ error: 'chatId is required' });
@@ -16,14 +16,13 @@ export default async function handler(req, res) {
     });
   }
 
-  if (req.method !== 'POST') return res.status(405).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { message, chatId, history: clientHistory = [], memory: clientMemory = {} } = req.body;
   if (!chatId || !message) return res.status(400).json({ error: 'Missing chatId or message' });
 
   let storedMemory = await kv.get('user_memory') || clientMemory;
   let storedHistory = await kv.get(`chat_${chatId}`) || clientHistory;
-  let chatMeta = await kv.get(`chat_meta_${chatId}`) || { title: 'New Conversation' };
 
   const memoryText = Object.entries(storedMemory)
     .map(([k, v]) => `${k}: ${v}`)
@@ -42,22 +41,27 @@ Be natural and reference past conversations when it feels right.`;
     { role: 'user', content: message }
   ];
 
-  const response = await fetch('https://api.x.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.XAI_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'grok-2-latest',
-      messages: messagesForAPI,
-      temperature: 0.85,
-      max_tokens: 700
-    })
-  });
+  try {
+    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.XAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'grok-2-latest',
+        messages: messagesForAPI,
+        temperature: 0.85,
+        max_tokens: 700
+      })
+    });
 
-  const data = await response.json();
-  const reply = data.choices?.[0]?.message?.content || "Sorry, my brain glitched 😅";
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content || "Sorry, my brain glitched 😅";
+  } catch (err) {
+    console.error('Grok API error:', err);
+    const reply = "Sorry, my brain glitched 😅";
+  }
 
   const newHistory = [
     ...storedHistory,
@@ -67,6 +71,7 @@ Be natural and reference past conversations when it feels right.`;
 
   await kv.set(`chat_${chatId}`, newHistory);
 
+  // memory update logic (same as before)
   const updatedMemory = { ...storedMemory };
   const lowerMsg = message.toLowerCase();
 
@@ -85,8 +90,5 @@ Be natural and reference past conversations when it feels right.`;
 
   await kv.set('user_memory', updatedMemory);
 
-  res.json({ 
-    reply, 
-    updatedMemory 
-  });
-}
+  res.json({ reply, updatedMemory });
+};
