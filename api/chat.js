@@ -56,7 +56,7 @@ Be natural and reference past conversations when it feels right.`;
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'grok-beta',        // ← this was the fix!
+          model: 'grok-4.3',   // ← THIS IS THE ONE YOU WANT
           messages: messagesForAPI,
           temperature: 0.85,
           max_tokens: 700
